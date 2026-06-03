@@ -1,17 +1,41 @@
 export default async function handler(req, res) {
-  const { id, s, e } = req.query;
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (!id) return res.status(400).json({ error: 'missing id' });
+  // Handle preflight request
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
-  const url = s && e
-    ? `https://movish.net/moviebox-embed/tv/${id}/${s}/${e}`
-    : `https://movish.net/moviebox-embed/movie/${id}`;
+  try {
+    const { id, s, e } = req.query;
 
-  const html = await fetch(url).then(r => r.text());
+    if (!id) {
+      return res.status(400).json({ error: "missing id" });
+    }
 
-  const match = html.match(/<video[^>]+src="([^"]+)"/i);
+    const url =
+      s && e
+        ? `https://movish.net/moviebox-embed/tv/${id}/${s}/${e}`
+        : `https://movish.net/moviebox-embed/movie/${id}`;
 
-  if (!match) return res.status(404).json({ error: 'not found' });
+    const response = await fetch(url);
+    const html = await response.text();
 
-  res.json({ videoUrl: match[1] });
+    const match = html.match(/<video[^>]+src="([^"]+)"/i);
+
+    if (!match) {
+      return res.status(404).json({ error: "not found" });
+    }
+
+    return res.status(200).json({
+      videoUrl: match[1],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "server error",
+      details: err.message,
+    });
+  }
 }
